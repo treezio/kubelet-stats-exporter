@@ -15,13 +15,21 @@ spec:
     spec:
       containers:
       - name: kubelet-stats-exporter
-        image: python:3.9-slim # Change to your image
-        # Dummy command and args for testing 
-        command: ['/bin/sh']
-        args: ['-c','while true; do echo hello; sleep 60;done']
+        image: kubelet-stats-exporter:latest # Change to your image
+        # imagePullPolicy: Never
         ports:
-        - containerPort: 9118
+        - name: metrics
+          containerPort: 9118
         # Increase these resource values for larger clusters
+        # env:
+        #   - name: EXPORTER_PORT
+        #     value: "9118"
+        #   - name: JSON_LOGGER
+        #     value: "true"
+        #   - name: LOG_LEVEL
+        #     value: "INFO"
+        #   - name: SCRAPE_TIMEOUT
+        #     value: "30.0"
         resources:
           limits:
             cpu: 50m
@@ -29,4 +37,13 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9118
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9118
+          initialDelaySeconds: 20
       serviceAccountName: kubelet-stats-exporter  
