@@ -51,7 +51,7 @@ class KubeletCollector():
             else:
                 logger.warning(f"Node {node_name} is not in Ready status")
                 continue
-        logger.debug("Metrics collected for node {}", node_name)
+        logger.debug(f"Metrics collected for node {node_name}")
         yield self.metric
 
     def get_pod_metrics(self, pod_id):
