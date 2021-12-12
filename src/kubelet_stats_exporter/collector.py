@@ -3,6 +3,30 @@ from kubernetes import client, config
 from prometheus_client.core import GaugeMetricFamily
 from kubelet_stats_exporter.logging import logger
 
+def get_pod_metrics(pod_id):
+    """Retrieves metrics from pod
+    Parameters
+    ----------
+    pod_id: string
+        Pod ID
+    Returns
+    -------
+    name: string
+        Pod name
+    namespace: string
+        Pod namespace
+    used_bytes: int
+        Ephemeral Storage - Used bytes metric value
+    """
+    logger.debug(f"Parsing info from pod: {pod_id}")
+    name = pod_id['podRef']['name']
+    namespace = pod_id['podRef']['namespace']
+    try:
+        used_bytes = pod_id['ephemeral-storage']['usedBytes']
+    except Exception as err:
+        used_bytes = 0
+        logger.warning(f"Unable to get usedBytes metrics for pod {name}, setting to 0 - {err}")
+    return name, namespace, used_bytes
 
 # Custom Collector
 class KubeletCollector():
@@ -42,7 +66,7 @@ class KubeletCollector():
                 node_info = self.get_node_info(node_name)
                 if node_info is not None:
                     for pod in node_info['pods']:
-                        name, namespace, used_bytes = self.get_pod_metrics(pod)
+                        name, namespace, used_bytes = get_pod_metrics(pod)
                         labels=[node_name,namespace,name]
                         self.metric.add_metric(labels, used_bytes)
                 else:
@@ -53,31 +77,6 @@ class KubeletCollector():
                 continue
         logger.debug(f"Metrics collected for node {node_name}")
         yield self.metric
-
-    def get_pod_metrics(self, pod_id):
-        """Retrieves metrics from pod
-        Parameters
-        ----------
-        pod_id: string
-            Pod ID
-        Returns
-        -------
-        name: string
-            Pod name
-        namespace: string
-            Pod namespace
-        used_bytes: int
-            Ephemeral Storage - Used bytes metric value
-        """
-        logger.debug(f"Parsing info from pod: {pod_id}")
-        name = pod_id['podRef']['name']
-        namespace = pod_id['podRef']['namespace']
-        try:
-            used_bytes = pod_id['ephemeral-storage']['usedBytes']
-        except Exception as err:
-            used_bytes = 0
-            logger.warning(f"Unable to get usedBytes metrics for pod {name}, setting to 0 - {err}")
-        return name, namespace, used_bytes
 
     def get_node_info(self, node_name):
         """Retrieves node information
