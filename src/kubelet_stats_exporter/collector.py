@@ -1,11 +1,11 @@
 import requests
-from kubelet_stats_exporter.logging import logger
 from kubernetes import client, config
-from prometheus_client import start_http_server
-from prometheus_client.core import GaugeMetricFamily, REGISTRY
+from prometheus_client.core import GaugeMetricFamily
+from kubelet_stats_exporter.logging import logger
+
 
 # Custom Collector
-class KubeletCollector(object):
+class KubeletCollector():
     """
     Custom Collector Class
     Collects Kubelet Metrics from Kubernetes nodes
@@ -19,7 +19,7 @@ class KubeletCollector(object):
         self.k8s_token = open('/run/secrets/kubernetes.io/serviceaccount/token', "r").read()
         self.auth_headers = { 'Authorization': 'Bearer ' + str(self.k8s_token) }
         self.timeout = timeout
-        
+
         # Prometheus metrics to collect
         self.metric = GaugeMetricFamily(
             'kube_pod_ephemeral_storage_used_bytes',
@@ -29,13 +29,13 @@ class KubeletCollector(object):
     def collect(self):
         """
         Main Function for Custom Collector
-        Get the list of nodes and iterate 
+        Get the list of nodes and iterate
         """
         logger.debug("Retrieving list of nodes")
         nodes = self.k8s_client.list_node()
         for node in nodes.items:
             node_name = node.metadata.name
-            # Check Node is in Ready status 
+            # Check Node is in Ready status
             ready_status = [x for x in node.status.conditions if x.type == 'Ready']
             if len(ready_status) > 0 and ready_status[0].status == 'True':
                 logger.debug(f"Node name: {node_name}, status: {ready_status[0].status}")
@@ -51,7 +51,7 @@ class KubeletCollector(object):
             else:
                 logger.warning(f"Node {node_name} is not in Ready status")
                 continue
-        logger.debug(f"Metrics collected for node {node_name}")
+        logger.debug("Metrics collected for node {}", node_name)
         yield self.metric
 
     def get_pod_metrics(self, pod_id):
@@ -74,9 +74,9 @@ class KubeletCollector(object):
         namespace = pod_id['podRef']['namespace']
         try:
             used_bytes = pod_id['ephemeral-storage']['usedBytes']
-        except:
+        except Exception as err:
             used_bytes = 0
-            logger.warning(f"Unable to get usedBytes metrics for pod {name}, setting to 0")
+            logger.warning(f"Unable to get usedBytes metrics for pod {name}, setting to 0 - {err}")
         return name, namespace, used_bytes
 
     def get_node_info(self, node_name):
@@ -84,20 +84,20 @@ class KubeletCollector(object):
         Parameters
         ----------
         node_name: string
-            Name of the node to retrieve the information from 
+            Name of the node to retrieve the information from
         Returns
         -------
         response - Mapping
             Response returned from node /proxy/stats/summary endpoint.
         None - NoneType
             Returned when exception is raised requesting to node /proxy/stats/summary endpoint.
-        """ 
+        """
         logger.debug(f"Collecting metrics from node {node_name}")
         try:
             response = requests.get(
                 f"https://kubernetes.default.svc/api/v1/nodes/{node_name}/proxy/stats/summary",
                 headers=self.auth_headers, verify=self.ca_file, timeout=self.timeout)
-        except:
-            logger.warning(f"Unable to request summary stats from node {node_name}")
+        except Exception as err:
+            logger.warning(f"Unable to request summary stats from node {node_name} - {err}")
             return None
         return response.json()

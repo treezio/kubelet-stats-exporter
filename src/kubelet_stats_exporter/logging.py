@@ -1,9 +1,11 @@
 import logging
-from kubelet_stats_exporter.config import JSON_LOGGER, LOG_LEVEL
 from pythonjsonlogger import jsonlogger
+from kubelet_stats_exporter.config import JSON_LOGGER, LOG_LEVEL
 
 # create filter for all requests
 class NoRequests(logging.Filter):
+    '''Logging Filter class that filters all werkzeug requests
+    '''
     def filter(self, record):
         return '/' not in record.getMessage()
 
